@@ -134,7 +134,9 @@ GitHub Pages side (most often the one-time setting below is missing). Tell the T
 ## First-time setup (TA, once)
 
 Before the first publish, on github.com open **Settings → Pages** and, under **Build and deployment
-→ Source**, choose **GitHub Actions**. This is done once per repository. Until it is done, every run
+→ Source**, choose **GitHub Actions**. This is done once per repository. Publishing from a private
+repository needs a GitHub Pro account (free for students through GitHub Education); on a Free
+account the site is unpublished as soon as the repository is private. Until it is done, every run
 fails in the **deploy** job with "Get Pages site failed" even though the data files are fine. After
 choosing it, open the **Actions** tab, click the failed run and press **Re-run all jobs** (or make any
 commit).
@@ -158,8 +160,7 @@ Done once per module, normally by the TA:
 ## Draft, review, publish
 
 - **Work on the `draft` branch** when a module is not ready for students. Only `main` is
-  published, and nothing on the site links to `draft`. It is still **public** (see the next
-  section), so it is for unfinished work, never for anything confidential.
+  published; `draft` is visible only to collaborators of this private repository.
 - **Review copy:** `python3 tools/bundle.py --modules m1,m2 --out preview.html` builds one
   self-contained HTML file that works offline. Double-click it, or email it to a colleague for
   review. Files named `preview*.html` are ignored by git and never published.
@@ -167,15 +168,17 @@ Done once per module, normally by the TA:
   *compare:* `draft`, click **Create pull request**, then **Merge pull request** and
   **Confirm merge**. The check runs and the site updates.
 
-## The public-repository rule
+## Who can see what
 
-**Everything in this repository is visible to anyone on the internet** — every file, every branch
-(including `draft`), every commit message and every past version. Deleting something later does
-not remove it from the history.
+The repository is **private**: only the TA and invited collaborators can see its files, branches
+and history, so questions can be edited or deleted freely before the link goes to students.
 
-So: practice questions and their solutions only. Nothing confidential goes here — not on any
-branch, not in a commit message, not "just for a minute". Keep materials for graded work, student
-names or grades and internal notes elsewhere.
+The published site is different: once GitHub Pages is enabled, **anyone who has the link can open
+it**, but it only ever shows the current questions on `main` — not drafts and not past versions.
+Nothing links to it until the TA adds it to BruinLearn.
+
+Two rules follow: keep the repository private (making it public would expose the whole history),
+and still keep anything confidential — graded work, exam material, grades — out of it.
 
 ## Putting it in BruinLearn
 
