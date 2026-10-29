@@ -1,0 +1,131 @@
+/* MGMT 405 practice exercises — styles (ported from the original single-file page). */
+:root {
+  --bg:#fafaf7; --fg:#1a1a1a; --muted:#666; --line:#dcd9d2; --card:#fff;
+  --accent:#0066cc; --accent-soft:#e6f0fa; --good:#2a8a3e; --good-soft:#e7f5ea;
+  --warn:#b85c00; --warn-soft:#fff7ea; --bad:#b03030; --bad-soft:#fdecec;
+  --fig-demand:#0066cc; --fig-supply:#b85c00;   /* read by assets/figures.js */
+}
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--fg); line-height:1.5; }
+
+/* Header */
+header { background:#1f3a5f; color:#fff; padding:14px 22px; }
+header h1 { margin:0; font-size:18px; font-weight:600; }
+header .sub { color:#cfdbe8; font-size:13px; margin-top:2px; }
+
+/* Muted banner (storage unavailable) */
+.banner { background:#f0ede5; color:var(--muted); font-size:13px; padding:8px 22px; border-bottom:1px solid var(--line); text-align:center; }
+.banner[hidden] { display:none; }
+
+/* Module tabs */
+.modnav { background:#fff; border-bottom:1px solid var(--line); padding:0 10px; display:flex; overflow-x:auto; }
+.modnav button { background:none; border:none; padding:11px 16px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap; font-family:inherit; }
+.modnav button:hover { color:var(--fg); background:#f5f3ec; }
+.modnav button.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* Controls: filter, stats, reset */
+.controls { background:#f0ede5; padding:8px 22px; display:flex; align-items:center; gap:14px; font-size:13px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.controls label { font-weight:600; }
+.controls select { padding:4px 8px; font-size:13px; border:1px solid var(--line); border-radius:3px; background:#fff; font-family:inherit; }
+.controls .stats { margin-left:auto; color:var(--muted); }
+.controls .stats strong { color:var(--good); }
+.controls .reset { font-size:11px; padding:2px 8px; background:#fff; color:var(--fg); border:1px solid var(--line); border-radius:3px; cursor:pointer; font-family:inherit; }
+.controls .reset:hover { background:var(--bad-soft); color:var(--bad); border-color:var(--bad); }
+
+/* Main column */
+main { max-width:880px; margin:0 auto; padding:18px 22px 100px; }
+.muted { color:var(--muted); }
+.modtitle { margin:4px 0 14px; }
+.modtitle h2 { margin:0; font-size:17px; font-weight:600; }
+.modtitle .modsub { margin:2px 0 0; color:var(--muted); font-size:13.5px; }
+
+/* Question card */
+.q { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:18px 22px; margin-bottom:14px; box-shadow:0 1px 2px rgba(0,0,0,0.03); }
+.q.done.correct  { border-left:4px solid var(--good); }
+.q.done.failed   { border-left:4px solid var(--bad); }
+.q.done.revealed { border-left:4px solid #888; }
+.q.module-error { border-left:4px solid var(--bad); background:var(--bad-soft); color:var(--bad); }
+.q.module-error .detail { color:var(--fg); font-size:13px; margin-top:6px; }
+.qhead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+.qnum { font-family:ui-monospace,Menlo,Consolas,monospace; color:var(--muted); font-size:12px; font-weight:600; }
+.qtag { display:inline-block; background:var(--accent-soft); color:var(--accent); border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600; }
+.qkind { display:inline-block; border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600; }
+.qkind.numeric { background:#f5e9ff; color:#6a2cb0; }
+.qkind.conceptual { background:#e9f3ea; color:var(--good); }
+.qstatus { margin-left:auto; font-size:12px; font-weight:600; }
+.qstatus.correct  { color:var(--good); }
+.qstatus.failed   { color:var(--bad); }
+.qstatus.revealed { color:var(--muted); }
+.qsource { color:var(--muted); font-size:12.5px; margin-bottom:6px; }
+.qstem { font-size:14.5px; margin:10px 0; }
+.qstem p { margin:0 0 8px; }
+.qstem p:last-child { margin-bottom:0; }
+.qtable { border-collapse:collapse; margin:10px 0; font-size:14px; }
+.qtable th, .qtable td { border:1px solid var(--line); padding:5px 12px; text-align:left; }
+.qtable th { background:#f5f3ec; font-weight:600; }
+.qask { font-size:14.5px; font-weight:600; margin:10px 0; }
+
+/* Options */
+.choices label { display:block; padding:7px 10px; margin:3px 0; cursor:pointer; border:1px solid var(--line); border-radius:4px; background:#fff; font-size:14px; }
+.choices label:hover { background:#f5f3ec; }
+.choices label.selected { background:var(--accent-soft); border-color:var(--accent); }
+.choices label.answer { background:var(--good-soft); border-color:var(--good); }
+.choices label.wrong { background:var(--bad-soft); border-color:var(--bad); }
+.choices input { margin:0 8px 0 0; vertical-align:-1px; }
+.choices input:disabled + strong { color:var(--muted); }
+
+/* Submit row */
+.actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0 8px; }
+button.action { padding:6px 14px; font-size:14px; font-weight:600; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:4px; cursor:pointer; font-family:inherit; }
+button.action:hover { background:#0055aa; }
+button.action:disabled { background:#aaa; border-color:#aaa; cursor:not-allowed; }
+.attempts { color:var(--muted); font-size:12px; }
+.prompt { color:var(--warn); font-size:13px; font-weight:600; }
+
+/* Feedback, hints, solution */
+.feedback { margin:8px 0; padding:8px 12px; border-radius:4px; font-size:13.5px; font-weight:600; }
+.feedback.correct { background:var(--good-soft); color:var(--good); border-left:3px solid var(--good); }
+.feedback.wrong   { background:var(--bad-soft); color:var(--bad); border-left:3px solid var(--bad); }
+.feedback.info    { background:var(--accent-soft); color:var(--accent); border-left:3px solid var(--accent); }
+.hint { background:var(--warn-soft); border-left:3px solid var(--warn); padding:8px 12px; margin:6px 0; border-radius:0 4px 4px 0; font-size:13.5px; }
+.hint b { color:var(--warn); }
+.solution { background:#f5f3ec; border-left:3px solid #888; padding:10px 14px; margin:8px 0; border-radius:0 4px 4px 0; font-size:14px; }
+.solution h4 { margin:0 0 6px; font-size:13px; color:#444; text-transform:uppercase; letter-spacing:0.04em; }
+.solution p { margin:0 0 8px; }
+.solution p:last-of-type { margin-bottom:0; }
+
+/* Figures (SVG strings from assets/figures.js) */
+.fig svg { width:100%; height:auto; display:block; max-width:520px; margin:10px auto; }
+.fig.two svg { max-width:760px; }
+
+/* Floating calculator */
+.calc-toggle { position:fixed; bottom:18px; right:18px; padding:10px 14px; background:var(--accent); color:#fff; border:none; border-radius:50px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.15); z-index:90; font-family:inherit; }
+.calc-toggle:hover { background:#0055aa; }
+.calc { position:fixed; bottom:64px; right:18px; width:260px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.18); padding:8px; display:none; z-index:90; }
+.calc.show { display:block; }
+.calc .display { background:#f5f3ec; border:1px solid var(--line); border-radius:4px; padding:10px 12px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:18px; text-align:right; min-height:44px; word-break:break-all; overflow-wrap:anywhere; }
+.calc .keys { display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; margin-top:6px; }
+.calc .keys button { padding:9px 0; font-size:14px; font-weight:600; border:1px solid var(--line); background:#fff; cursor:pointer; border-radius:4px; font-family:inherit; }
+.calc .keys button:hover { background:#f0ede5; }
+.calc .keys button.op { background:var(--accent-soft); color:var(--accent); }
+.calc .keys button.eq { background:var(--accent); color:#fff; grid-column:span 2; }
+.calc .keys button.fn { background:#e9e6dd; color:#555; }
+.calc .err { color:var(--bad); }
+
+/* Phones */
+@media (max-width:640px) {
+  header { padding:12px 14px; }
+  header h1 { font-size:16px; }
+  .banner { padding:8px 14px; }
+  .controls { padding:8px 14px; gap:8px 10px; }
+  .controls .stats { margin-left:0; flex-basis:100%; }
+  main { padding:14px 14px 100px; }
+  .q { padding:14px; border-radius:6px; }
+  .qstem, .qask { font-size:14px; }
+  .qtable { display:block; overflow-x:auto; }
+  .fig svg { max-width:100%; }
+  .fig.two { overflow-x:auto; }
+  .fig.two svg { max-width:none; width:640px; }
+  .calc { right:8px; left:8px; bottom:60px; width:auto; }
+}

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>MGMT 405 practice — self-test</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  #selftest { background:#111; color:#eee; font:12px/1.45 ui-monospace,Menlo,Consolas,monospace; padding:10px 14px; margin:0; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<!--
+  In-page checks of the practice app, run through window.PracticeApp and the DOM.
+  Output: one line per check in <pre id="selftest"> ("… PASS: name" / "… FAIL: name — detail"), then a final
+  "… DONE pass=n fail=m" line. The token strings are concatenated in the script below so that grepping a
+  --dump-dom of this page matches only real output lines, not the source.
+  Flags: ?reveal=1 → skip the checks, just call revealAll() (for screenshots);
+         ?nostorage=1 → make window.localStorage throw before the app loads, then check the banner + mechanics.
+  The page saves any existing progress before testing and restores it afterwards.
+-->
+<pre id="selftest">self-test starting…
+</pre>
+
+<header>
+  <h1>MGMT 405 Managerial Economics — Practice Exercises</h1>
+  <div class="sub">UCLA Anderson · Fall 2026 · self-test page</div>
+</header>
+<div class="banner" id="storage-banner" hidden>Progress can't be saved in this browser or embed — open the page directly to keep your progress.</div>
+<nav class="modnav" id="modnav" aria-label="Modules"></nav>
+<div class="controls">
+  <label for="typefilter">Question type:</label>
+  <select id="typefilter">
+    <option value="all">All</option>
+    <option value="numeric">Numeric</option>
+    <option value="conceptual">Conceptual</option>
+  </select>
+  <span class="stats"><span id="progress">0 / 0 attempted</span> · <strong id="correct">0 correct</strong></span>
+  <button id="reset" class="reset" type="button">Reset this module</button>
+</div>
+<main id="main"></main>
+
+<script>
+// Runs BEFORE the app: snapshot real progress so it can be restored, and honour ?nostorage=1.
+(function () {
+  var KEY = 'mgmt405_ucla_practice_v1';
+  var params = new URLSearchParams(location.search);
+  window.__selftest = { key: KEY, params: params, snapshot: null, hadStorage: false };
+  try { window.__selftest.snapshot = window.localStorage.getItem(KEY); window.__selftest.hadStorage = true; } catch (_) {}
+  if (params.get('nostorage') === '1') {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get: function () { throw new Error('localStorage blocked by selftest'); }
+    });
+  }
+})();
+</script>
+<button class="calc-toggle" id="calctoggle" type="button" aria-controls="calc">Calculator</button>
+<div class="calc" id="calc" role="dialog" aria-label="Calculator">
+  <div class="display" id="calcdisp">0</div>
+  <div class="keys">
+    <button type="button" class="fn" data-act="clear">C</button>
+    <button type="button" class="fn" data-act="back">⌫</button>
+    <button type="button" class="fn" data-key="(">(</button>
+    <button type="button" class="fn" data-key=")">)</button>
+    <button type="button" class="op" data-key="/">÷</button>
+    <button type="button" data-key="7">7</button>
+    <button type="button" data-key="8">8</button>
+    <button type="button" data-key="9">9</button>
+    <button type="button" class="op" data-key="*">×</button>
+    <button type="button" class="fn" data-act="sqrt">√</button>
+    <button type="button" data-key="4">4</button>
+    <button type="button" data-key="5">5</button>
+    <button type="button" data-key="6">6</button>
+    <button type="button" class="op" data-key="-">−</button>
+    <button type="button" class="fn" data-key="**">x^y</button>
+    <button type="button" data-key="1">1</button>
+    <button type="button" data-key="2">2</button>
+    <button type="button" data-key="3">3</button>
+    <button type="button" class="op" data-key="+">+</button>
+    <button type="button" class="fn" data-key=".">.</button>
+    <button type="button" data-key="0">0</button>
+    <button type="button" data-key="00">00</button>
+    <button type="button" class="eq" data-act="eq">=</button>
+  </div>
+</div>
+<script src="../assets/figures.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../data/module1.js" data-module="m1"></script>
+
+<script>
+(function () {
+  var out = document.getElementById('selftest');
+  var T = window.__selftest;
+  var params = T.params;
+  var nostorage = params.get('nostorage') === '1';
+  var pass = 0, fail = 0;
+  var TAG = 'SELF' + 'TEST';   // concatenated so the source never contains the output tokens
+
+  function log(line) { out.textContent += line + '\n'; }
+  function check(name, cond, detail) {
+    if (cond) { pass++; log(TAG + ' PASS: ' + name); }
+    else { fail++; log(TAG + ' FAIL: ' + name + (detail ? ' — ' + detail : '')); }
+  }
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function card(qid) { return $('.q[data-qid="' + qid + '"]'); }
+  function text(node) { return node ? node.textContent.replace(/\s+/g, ' ').trim() : ''; }
+  function wrongIndex(q) { return (q.correct_index + 1) % q.choices.length; }
+  function statsText() { return text($('.controls .stats')); }
+
+  function restoreStorage() {
+    if (nostorage || !T.hadStorage) return;
+    try {
+      if (T.snapshot === null) window.localStorage.removeItem(T.key);
+      else window.localStorage.setItem(T.key, T.snapshot);
+    } catch (_) {}
+  }
+  function finish() {
+    restoreStorage();
+    log(TAG + ' DONE pass=' + pass + ' fail=' + fail);
+    document.title = (fail ? 'FAIL — ' : 'PASS — ') + document.title;
+  }
+
+  function run() {
+    var App = window.PracticeApp;
+    var api = ['modules', 'state', 'submit', 'resetModule', 'revealAll', 'selectModule', 'setFilter'];
+    check('PracticeApp exposes ' + api.join(', '), !!App && api.every(function (k) { return typeof App[k] === 'function'; }));
+    if (!App) return;
+
+    var mods = App.modules();
+    var m1 = null;
+    mods.forEach(function (m) { if (m.id === 'm1') m1 = m; });
+    check('module m1 registered', !!m1, 'registered: ' + mods.map(function (m) { return m.id; }).join(','));
+    check('no module-load error card', !$('.module-error'), text($('.module-error')));
+    if (!m1) return;
+    var N = m1.questions.length;
+
+    // ?reveal=1 → screenshots mode
+    if (params.get('reveal') === '1') {
+      App.selectModule('m1'); App.setFilter('all'); App.revealAll();
+      check('revealAll shows every solution', $$('.q[data-qid] .solution').length === N);
+      return;
+    }
+
+    check('m1 has 17 questions', N === 17, 'got ' + N);
+    check('m1 question ids look like m1-qNN', m1.questions.every(function (q) { return /^m1-q\d{2}$/.test(q.id); }));
+
+    // Storage probe / banner
+    var banner = $('#storage-banner');
+    if (nostorage) {
+      var threw = false; try { void window.localStorage; } catch (_) { threw = true; }
+      check('localStorage access throws under ?nostorage=1', threw);
+      check('storage banner shown when storage is blocked', !!banner && !banner.hidden && /Progress can't be saved/.test(text(banner)));
+    } else {
+      check('storage banner hidden when storage works', !!banner && banner.hidden);
+    }
+
+    // Clean start
+    check('selectModule(m1) returns true', App.selectModule('m1') === true);
+    check('setFilter(all) returns true', App.setFilter('all') === true);
+    check('setFilter rejects unknown kinds', App.setFilter('bogus') === false);
+    App.resetModule('m1');
+    var activeTab = $('#modnav button.active');
+    check('module tab for m1 is active', !!activeTab && activeTab.dataset.mid === 'm1');
+    check('module title shown above the cards', text($('.modtitle h2')) === String(m1.title));
+
+    // Every question rendered with 4 radio options labelled A)–D)
+    var badOpts = m1.questions.filter(function (q) {
+      var c = card(q.id); if (!c) return true;
+      var radios = $$('.choices input[type="radio"]', c), labels = $$('.choices label', c);
+      if (radios.length !== 4 || labels.length !== 4) return true;
+      return !['A)', 'B)', 'C)', 'D)'].every(function (L, i) { return text(labels[i]).indexOf(L) === 0; });
+    });
+    check('every question renders 4 radio options A)–D)', badOpts.length === 0, 'bad: ' + badOpts.map(function (q) { return q.id; }).join(','));
+    check('all ' + N + ' cards rendered', $$('.q[data-qid]').length === N, 'got ' + $$('.q[data-qid]').length);
+
+    var q1 = m1.questions[0], q2 = m1.questions[1], q3 = m1.questions[2];
+    var c1 = card(q1.id);
+    check('card shows theme tag', !!$('.qtag', c1) && text($('.qtag', c1)) === String(q1.theme));
+    check('card shows "Covered in:" line', text($('.qsource', c1)) === 'Covered in: ' + q1.source);
+    check('stem rendered as paragraphs', $$('.qstem p', c1).length === String(q1.stem).split('\n').filter(function (p) { return p.trim(); }).length);
+    check('ask rendered in bold', !!$('.qask', c1) && text($('.qask', c1)) === String(q1.ask));
+    var withTable = m1.questions.filter(function (q) { return q.table; });
+    check('table rendered for question(s) with a table (' + withTable.length + ')', withTable.every(function (q) {
+      var tb = $('.qtable', card(q.id)); return tb && $$('tbody tr', tb).length === q.table.rows.length && $$('th', tb).length === q.table.headers.length;
+    }));
+    check('attempts label reads "Attempts: 0 / 3"', text($('.attempts', c1)) === 'Attempts: 0 / 3', text($('.attempts', c1)));
+    check('no hints or solution before any attempt', $$('.hint', c1).length === 0 && !$('.solution', c1));
+
+    // Blank submit: no attempt consumed, inline prompt
+    var r = App.submit(q1.id, null);
+    var s = App.state()[q1.id];
+    check('blank submit consumes no attempt', r && r.consumed === false && r.status === 'blank' && (!s || s.attempts === 0), JSON.stringify(r));
+    check('blank submit shows an inline prompt', !!$('.prompt', card(q1.id)));
+    check('blank submit leaves stats at 0 attempted', /^0 \/ \d+ attempted · 0 correct$/.test(statsText()), statsText());
+
+    // Wrong ×3 → hints 1/2/3, solution only after the 3rd
+    var wrongs = q1.choices.map(function (_, i) { return i; }).filter(function (i) { return i !== q1.correct_index; });
+    var w = wrongs[0], w2 = wrongs[1], w3 = wrongs[2];   // three distinct wrong answers (every question has 4 choices)
+    var keep3 = card(q3.id);
+    r = App.submit(q1.id, w); s = App.state()[q1.id];
+    check('wrong #1: attempt consumed, hint 1 revealed, no solution', r.consumed === true && r.status === 'wrong' && r.ok === false &&
+      s.attempts === 1 && s.hints_shown === 1 && $$('.hint', card(q1.id)).length === 1 && !$('.solution', card(q1.id)), JSON.stringify(r) + ' ' + JSON.stringify(s));
+    check('wrong #1 feedback text', /^✗ Not quite — Hint 1 revealed below\./.test(text($('.feedback', card(q1.id)))), text($('.feedback', card(q1.id))));
+    check('wrong #1: chosen option stays selected', (function () { var c = $('.choices input:checked', card(q1.id)); return c && +c.value === w; })());
+    check('only the affected card is re-rendered', card(q3.id) === keep3);
+    check('attempts label reads "Attempts: 1 / 3"', text($('.attempts', card(q1.id))) === 'Attempts: 1 / 3');
+
+    r = App.submit(q1.id, w); s = App.state()[q1.id];
+    check('re-submitting the same wrong choice consumes no attempt', r.consumed === false && r.status === 'repeat' && s.attempts === 1 &&
+      s.hints_shown === 1 && $$('.hint', card(q1.id)).length === 1 && !!$('.prompt', card(q1.id)), JSON.stringify(r) + ' ' + JSON.stringify(s));
+
+    r = App.submit(q1.id, w2); s = App.state()[q1.id];
+    check('wrong #2: hint 2 revealed, still no solution', r.status === 'wrong' && s.attempts === 2 && s.hints_shown === 2 &&
+      $$('.hint', card(q1.id)).length === 2 && !$('.solution', card(q1.id)));
+    check('feedback text persists in the re-rendered card', /Hint 2 revealed below/.test(text($('.feedback', card(q1.id)))));
+    check('hints are numbered 1, 2', text($$('.hint', card(q1.id))[0]).indexOf('Hint 1:') === 0 && text($$('.hint', card(q1.id))[1]).indexOf('Hint 2:') === 0);
+
+    r = App.submit(q1.id, w3); s = App.state()[q1.id];
+    check('wrong #3: all 3 hints + solution, marked not solved', r.status === 'failed' && r.consumed === true && s.completed === true && s.correct === false &&
+      s.hints_shown === 3 && $$('.hint', card(q1.id)).length === 3 && !!$('.solution', card(q1.id)) && card(q1.id).classList.contains('failed'));
+    check('wrong #3 feedback names hint 3', /^✗ Not quite — Hint 3 revealed below\./.test(text($('.feedback', card(q1.id)))));
+    check('inputs disabled after completion', $$('input[type="radio"]', card(q1.id)).every(function (i) { return i.disabled; }) && $('button[data-action="submit"]', card(q1.id)).disabled);
+    check('attempts label reads "Attempts: 3 / 3"', text($('.attempts', card(q1.id))) === 'Attempts: 3 / 3');
+    check('solution has paragraphs', $$('.solution p', card(q1.id)).length === q1.solution.length);
+    r = App.submit(q1.id, q1.correct_index);
+    check('submit after completion is ignored', r.consumed === false && r.status === 'completed' && App.state()[q1.id].attempts === 3);
+
+    // Correct answer
+    r = App.submit(q2.id, q2.correct_index); s = App.state()[q2.id];
+    check('correct answer: solved, solution shown, inputs disabled', r.ok === true && r.status === 'correct' && r.consumed === true &&
+      s.completed && s.correct && s.attempts === 1 && !!$('.solution', card(q2.id)) && card(q2.id).classList.contains('correct') &&
+      $$('input[type="radio"]', card(q2.id)).every(function (i) { return i.disabled; }));
+    check('correct feedback text', /^✓ Correct!/.test(text($('.feedback', card(q2.id)))), text($('.feedback', card(q2.id))));
+    check('correct answer reveals no hints', $$('.hint', card(q2.id)).length === 0);
+    check('stats: 2 / ' + N + ' attempted · 1 correct', statsText() === '2 / ' + N + ' attempted · 1 correct', statsText());
+
+    // Unknown question id
+    r = App.submit('nope-q99', 0);
+    check('unknown qid is rejected without consuming anything', r.consumed === false && r.status === 'unknown');
+
+    // Persistence: what a re-init would read back from storage must equal the in-memory state
+    if (nostorage) {
+      check('mechanics work in memory when storage is blocked', App.state()[q1.id].attempts === 3 && App.state()[q2.id].correct === true);
+    } else {
+      var stored = null;
+      try { stored = JSON.parse(window.localStorage.getItem(T.key)); } catch (_) {}
+      check('state persisted under localStorage[mgmt405_ucla_practice_v1]', !!stored && stored[q1.id] && stored[q1.id].attempts === 3 && stored[q1.id].hints_shown === 3 &&
+        stored[q2.id] && stored[q2.id].correct === true && stored[q2.id].feedback && stored[q2.id].feedback.text === '✓ Correct!');
+      check('stored state equals in-memory state (re-init would restore it)', JSON.stringify(stored) === JSON.stringify(App.state()));
+    }
+
+    // Type filter + stats follow module + filter
+    var numeric = m1.questions.filter(function (q) { return q.kind === 'numeric'; });
+    var conceptual = m1.questions.filter(function (q) { return q.kind === 'conceptual'; });
+    App.setFilter('numeric');
+    check('numeric filter shows only numeric questions', $$('.q[data-qid]').length === numeric.length &&
+      $$('.q[data-qid]').every(function (c) { return m1.questions.some(function (q) { return q.id === c.dataset.qid && q.kind === 'numeric'; }); }));
+    var attNum = numeric.filter(function (q) { return q.id === q1.id || q.id === q2.id; }).length;
+    var corNum = numeric.filter(function (q) { return q.id === q2.id; }).length;
+    check('stats follow the filter', statsText() === attNum + ' / ' + numeric.length + ' attempted · ' + corNum + ' correct', statsText());
+    App.setFilter('conceptual');
+    check('conceptual filter shows only conceptual questions', $$('.q[data-qid]').length === conceptual.length);
+    check('filter select mirrors setFilter()', $('#typefilter').value === 'conceptual');
+    App.setFilter('all');
+    check('all filter restores every card', $$('.q[data-qid]').length === N);
+
+    // Late registration of a second module; reset clears only the active module
+    var tabsBefore = $$('#modnav button').length;
+    window.registerModule({ id: 'zz', title: 'Self-test module', subtitle: 'temporary', questions: [{
+      id: 'zz-q01', theme: 'Test', source: 'nowhere', kind: 'numeric', stem: 'Stem.', ask: 'Ask?',
+      choices: ['1', '2', '3', '4'], correct_index: 0, hints: ['h1', 'h2', 'h3'], solution: ['Sol.']
+    }] });
+    check('late registerModule adds a tab and re-renders', $$('#modnav button').length === tabsBefore + 1);
+    check('selectModule(zz) shows its card and updates the hash', App.selectModule('zz') === true && !!card('zz-q01') && location.hash === '#zz');
+    App.submit('zz-q01', 1);
+    check('hashchange selects the module in the hash', (function () {
+      location.hash = '#m1'; window.dispatchEvent(new HashChangeEvent('hashchange'));
+      var t = $('#modnav button.active'); return t && t.dataset.mid === 'm1' && !!card(q1.id);
+    })());
+    check('resetModule(m1) returns true', App.resetModule('m1') === true);
+    var st = App.state();
+    check('reset clears only the active module', !st[q1.id] && !st[q2.id] && st['zz-q01'] && st['zz-q01'].attempts === 1, JSON.stringify(st));
+    check('reset re-renders clean cards', $$('.q.done').length === 0 && $$('.hint').length === 0 && $$('.solution').length === 0 && statsText() === '0 / ' + N + ' attempted · 0 correct');
+    check('resetModule rejects unknown module', App.resetModule('nope') === false);
+    check('selectModule rejects unknown module', App.selectModule('nope') === false);
+
+    // revealAll + figures
+    check('revealAll returns true', App.revealAll() === true);
+    check('revealAll shows every solution', $$('.q[data-qid] .solution').length === N, 'got ' + $$('.q[data-qid] .solution').length);
+    // Required figures: Q7, Q11–Q16 (7). Q6's staircase is optional in the contract → informational only.
+    var REQUIRED_FIG = ['m1-q07', 'm1-q11', 'm1-q12', 'm1-q13', 'm1-q14', 'm1-q15', 'm1-q16'];
+    var figQs = m1.questions.filter(function (q) { return q.figure; });
+    var figIds = figQs.map(function (q) { return q.id; });
+    check('the 7 required questions carry a figure spec', REQUIRED_FIG.every(function (id) { return figIds.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
+    check('no unexpected figure specs', figIds.every(function (id) { return id === 'm1-q06' || REQUIRED_FIG.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
+    check('window.Figures.render is available', !!(window.Figures && typeof window.Figures.render === 'function'));
+    var noFig = REQUIRED_FIG.filter(function (id) { return !$('.solution .fig svg', card(id)); });
+    check('figures render for the 7 required figure questions', noFig.length === 0, 'missing: ' + noFig.join(','));
+    var q6 = card('m1-q06');
+    log(TAG + ' INFO: optional staircase figure (m1-q06) spec=' + (figIds.indexOf('m1-q06') >= 0 ? 'yes' : 'no') + ' rendered=' + (q6 && $('.solution .fig svg', q6) ? 'yes' : 'no'));
+    figQs = figQs.filter(function (q) { return $('.solution .fig svg', card(q.id)); });   // only rendered ones below
+    var twoPanel = figQs.filter(function (q) { return q.figure.panels && q.figure.panels.length === 2; });
+    check('two-panel figures use .fig.two (' + twoPanel.length + ')', twoPanel.every(function (q) { return !!$('.fig.two svg', card(q.id)); }));
+    check('single-panel figures do not use .fig.two', figQs.filter(function (q) { return !(q.figure.panels && q.figure.panels.length === 2); })
+      .every(function (q) { return !$('.fig.two', card(q.id)); }));
+    check('figure SVGs have a viewBox and no width/height attributes', $$('.fig svg').every(function (svg) {
+      return svg.hasAttribute('viewBox') && !svg.hasAttribute('width') && !svg.hasAttribute('height');
+    }));
+
+    // Calculator: leading zeros are decimal, never legacy octal
+    function press(sel) { $('.calc .keys button' + sel).click(); }
+    function calc(seq) { press('[data-act="clear"]'); seq.forEach(function (k) { press(k === '=' ? '[data-act="eq"]' : '[data-key="' + k + '"]'); }); return text($('#calcdisp')); }
+    check('calc 0012= is 12', calc(['00', '1', '2', '=']) === '12', 'got ' + calc(['00', '1', '2', '=']));
+    check('calc 010= is 10', calc(['0', '1', '0', '=']) === '10', 'got ' + calc(['0', '1', '0', '=']));
+    check('calc 017+1= is 18', calc(['0', '1', '7', '+', '1', '=']) === '18', 'got ' + calc(['0', '1', '7', '+', '1', '=']));
+    check('calc 100= is 100', calc(['1', '00', '=']) === '100');
+    check('calc 0.5= is 0.5', calc(['0', '.', '5', '=']) === '0.5');
+    check('calc 5.5/1.1= is 5', calc(['5', '.', '5', '/', '1', '.', '1', '=']) === '5');
+    press('[data-act="clear"]');
+
+    // Tidy up (storage itself is restored in finish())
+    App.resetModule('m1'); App.resetModule('zz');
+  }
+
+  window.addEventListener('load', function () {
+    try { run(); }
+    catch (e) { check('self-test ran without throwing', false, String(e && e.stack || e)); }
+    finally { finish(); }
+  });
+})();
+</script>
+</body>
+</html>

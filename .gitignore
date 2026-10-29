@@ -1,0 +1,16 @@
+# Word lock files
+~$*
+
+# Not published
+*.pdf
+
+# Local scratch: screenshots, Chrome log and profile, offline review copies
+shots/
+chrome.log
+.chrome-profile/
+preview*.html
+
+# Python and OS clutter
+__pycache__/
+.DS_Store
+Thumbs.db
