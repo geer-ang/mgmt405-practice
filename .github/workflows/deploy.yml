@@ -1,6 +1,7 @@
 # Validate the data files, then publish the repository root to GitHub Pages.
 # Runs on every push to main (and by hand from the Actions tab). If validation
 # fails, the deploy job is skipped and the live site keeps its previous version.
+# The deploy job also stays skipped until PAGES_ENABLED is set (see below).
 name: Deploy to GitHub Pages
 
 on:
@@ -27,6 +28,9 @@ jobs:
 
   deploy:
     needs: validate
+    # Skipped until the repository variable PAGES_ENABLED is set to true
+    # (Settings → Secrets and variables → Actions → Variables), i.e. once GitHub Pages is enabled.
+    if: ${{ vars.PAGES_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

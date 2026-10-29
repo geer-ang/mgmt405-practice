@@ -136,7 +136,9 @@ GitHub Pages side (most often the one-time setting below is missing). Tell the T
 Before the first publish, on github.com open **Settings → Pages** and, under **Build and deployment
 → Source**, choose **GitHub Actions**. This is done once per repository. Publishing from a private
 repository needs a GitHub Pro account (free for students through GitHub Education); on a Free
-account the site is unpublished as soon as the repository is private. Until it is done, every run
+account the site is unpublished as soon as the repository is private. After enabling Pages, the TA
+also sets the repository variable `PAGES_ENABLED` to `true` (Settings → Secrets and variables →
+Actions → Variables); until then the **deploy** job is simply skipped and only **validate** runs. Until it is done, every run
 fails in the **deploy** job with "Get Pages site failed" even though the data files are fine. After
 choosing it, open the **Actions** tab, click the failed run and press **Re-run all jobs** (or make any
 commit).
