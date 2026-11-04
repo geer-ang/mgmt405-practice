@@ -5,7 +5,7 @@
  * Colors use CSS variables with fallbacks so a stylesheet can retheme the figures.
  *
  * Kinds:
- *   "sd"            supply & demand with shifts, 1 or 2 panels side by side
+ *   "sd"            supply & demand with shifts, 1 or 2 panels (one <svg> each)
  *   "demand-areas"  linear inverse demand with a price line and shaded areas
  *   "staircase"     discrete willingness-to-pay demand (one buyer per step)
  */
@@ -349,12 +349,12 @@
     const nCap = Math.max(1, ...caps.map(c => c.length)), nRes = Math.max(1, ...res.map(r => r.length));
     const y0 = 31 + 16 * (nCap - 1), y1 = y0 + 222, resY = y1 + 56;
     const H = resY + 16 * (nRes - 1) + 10;
-    let body = '';
-    panels.forEach((p, i) => { body += sdPanel(p, spec, i * pw, pw, { y0, y1, resY, caps: caps[i], res: res[i] }); });
-    if (panels.length === 2) body += seg(pw, 8, pw, H - 8, { stroke: '#ddd' });
-    const label = 'Supply and demand diagram. ' +
-      panels.map(p => [str(p.caption, ''), str(p.result, '')].filter(Boolean).join('. ')).join(' | ');
-    return svg(W, H, label, body);
+    // One <svg> per panel (same height, same layout): side by side on wide screens, stacked on phones
+    // (the .fig.two wrapper in style.css is a wrapping flex row).
+    return panels.map((p, i) => {
+      const label = 'Supply and demand diagram. ' + [str(p.caption, ''), str(p.result, '')].filter(Boolean).join('. ');
+      return svg(pw, H, label, sdPanel(p, spec, 0, pw, { y0, y1, resY, caps: caps[i], res: res[i] }));
+    }).join('');
   }
 
   // ======================================================================

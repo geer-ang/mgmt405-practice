@@ -19,7 +19,7 @@ changes on the `main` branch, the site updates itself within a minute or two.
 |---|---|
 | `data/module1.js` | The questions for Module 1 — **the only file you normally edit** |
 | `data/module2.js`, ... | One file per module |
-| `index.html` | The page itself |
+| `index.html` | The page itself (title bar and the gray disclosure line under it) |
 | `assets/` | Look and behaviour (`style.css`, `app.js`, `figures.js`) |
 | `tools/` | Helper scripts for the TA (see "Local checks") |
 | `.github/workflows/deploy.yml` | The automatic check-and-publish step |
@@ -133,15 +133,12 @@ GitHub Pages side (most often the one-time setting below is missing). Tell the T
 
 ## First-time setup (TA, once)
 
-Before the first publish, on github.com open **Settings → Pages** and, under **Build and deployment
-→ Source**, choose **GitHub Actions**. This is done once per repository. Publishing from a private
-repository needs a GitHub Pro account (free for students through GitHub Education); on a Free
-account the site is unpublished as soon as the repository is private. After enabling Pages, the TA
-also sets the repository variable `PAGES_ENABLED` to `true` (Settings → Secrets and variables →
-Actions → Variables); until then the **deploy** job is simply skipped and only **validate** runs. Until it is done, every run
-fails in the **deploy** job with "Get Pages site failed" even though the data files are fine. After
-choosing it, open the **Actions** tab, click the failed run and press **Re-run all jobs** (or make any
-commit).
+Done on 2026-11-01; kept for reference. On github.com, **Settings → Pages → Build and deployment →
+Source** must be **GitHub Actions**, and the repository variable `PAGES_ENABLED` must be `true`
+(Settings → Secrets and variables → Actions → Variables). Until both are set the **deploy** job is
+simply skipped and only **validate** runs; if **deploy** ever runs before Pages is enabled it fails
+with "Get Pages site failed" even though the data files are fine. After enabling Pages, open the
+**Actions** tab, click the failed run and press **Re-run all jobs** (or make any commit).
 
 ## Adding a module
 
@@ -153,6 +150,8 @@ Done once per module, normally by the TA:
        --subtitle "Short description of the module" --out data/module2.js --check
    ```
    `--check` compares the result against the Word text and reports any difference.
+   (Module 1 was revised by hand after import, on 2026-11-03: edit `data/module1.js` directly and do
+   not re-run the script on the Module 1 Word file, which is now historical.)
 2. Check it: `python3 tools/validate.py data/*.js`.
 3. In `index.html`, add one line after the existing module line:
    `<script src="data/module2.js" data-module="m2"></script>`.
@@ -162,7 +161,7 @@ Done once per module, normally by the TA:
 ## Draft, review, publish
 
 - **Work on the `draft` branch** when a module is not ready for students. Only `main` is
-  published; `draft` is visible only to collaborators of this private repository.
+  published to the site.
 - **Review copy:** `python3 tools/bundle.py --modules m1,m2 --out preview.html` builds one
   self-contained HTML file that works offline. Double-click it, or email it to a colleague for
   review. Files named `preview*.html` are ignored by git and never published.
@@ -172,15 +171,12 @@ Done once per module, normally by the TA:
 
 ## Who can see what
 
-The repository is **private**: only the TA and invited collaborators can see its files, branches
-and history, so questions can be edited or deleted freely before the link goes to students.
-
-The published site is different: once GitHub Pages is enabled, **anyone who has the link can open
-it**, but it only ever shows the current questions on `main` — not drafts and not past versions.
+The repository is **public**: anyone can read its files, branches and full history (including
+deleted or edited questions). The published site shows only the current questions on `main`.
 Nothing links to it until the TA adds it to BruinLearn.
 
-Two rules follow: keep the repository private (making it public would expose the whole history),
-and still keep anything confidential — graded work, exam material, grades — out of it.
+Two rules follow: never put anything confidential in the repository (exam material, graded work,
+grades, notes meant only for the teaching team), and treat every commit as permanent.
 
 ## Putting it in BruinLearn
 

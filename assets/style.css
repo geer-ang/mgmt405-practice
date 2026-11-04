@@ -14,6 +14,10 @@ header { background:#1f3a5f; color:#fff; padding:14px 22px; }
 header h1 { margin:0; font-size:18px; font-weight:600; }
 header .sub { color:#cfdbe8; font-size:13px; margin-top:2px; }
 
+/* AI disclosure under the header: quiet, gray, small */
+.disclosure { margin:0; background:#f7f6f2; color:#707070; font-size:12px; line-height:1.4; padding:5px 22px; border-bottom:1px solid var(--line); }
+.disclosure a { color:inherit; text-decoration:underline; }
+
 /* Muted banner (storage unavailable) */
 .banner { background:#f0ede5; color:var(--muted); font-size:13px; padding:8px 22px; border-bottom:1px solid var(--line); text-align:center; }
 .banner[hidden] { display:none; }
@@ -97,7 +101,9 @@ button.action:disabled { background:#aaa; border-color:#aaa; cursor:not-allowed;
 
 /* Figures (SVG strings from assets/figures.js) */
 .fig svg { width:100%; height:auto; display:block; max-width:520px; margin:10px auto; }
-.fig.two svg { max-width:760px; }
+/* Two-panel figures: one <svg> per panel, side by side when there is room, stacked on narrow screens */
+.fig.two { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:0 8px; }
+.fig.two svg { flex:1 1 300px; max-width:380px; margin:10px 0; }
 
 /* Floating calculator */
 .calc-toggle { position:fixed; bottom:18px; right:18px; padding:10px 14px; background:var(--accent); color:#fff; border:none; border-radius:50px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.15); z-index:90; font-family:inherit; }
@@ -117,6 +123,7 @@ button.action:disabled { background:#aaa; border-color:#aaa; cursor:not-allowed;
 @media (max-width:640px) {
   header { padding:12px 14px; }
   header h1 { font-size:16px; }
+  .disclosure { padding:5px 14px; font-size:11.5px; }
   .banner { padding:8px 14px; }
   .controls { padding:8px 14px; gap:8px 10px; }
   .controls .stats { margin-left:0; flex-basis:100%; }
@@ -125,7 +132,5 @@ button.action:disabled { background:#aaa; border-color:#aaa; cursor:not-allowed;
   .qstem, .qask { font-size:14px; }
   .qtable { display:block; overflow-x:auto; }
   .fig svg { max-width:100%; }
-  .fig.two { overflow-x:auto; }
-  .fig.two svg { max-width:none; width:640px; }
   .calc { right:8px; left:8px; bottom:60px; width:auto; }
 }

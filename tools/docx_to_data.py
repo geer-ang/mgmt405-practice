@@ -32,6 +32,10 @@ Body children (paragraphs and tables) are read in document order, so a table
 lands where it appears. Everything before the first "Qn." heading is ignored.
 
 Requires python-docx. --check also requires pandoc on PATH.
+
+NOTE (2026-11-03): data/module1.js was revised by hand after the docx (real-life Los
+Angeles examples, 15 questions, ids renumbered). The docx is now historical: re-running
+this script on it would overwrite those revisions. Edit data/module1.js directly.
 """
 
 import argparse

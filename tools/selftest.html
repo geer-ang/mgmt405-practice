@@ -144,7 +144,7 @@
       return;
     }
 
-    check('m1 has 17 questions', N === 17, 'got ' + N);
+    check('m1 has 15 questions', N === 15, 'got ' + N);
     check('m1 question ids look like m1-qNN', m1.questions.every(function (q) { return /^m1-q\d{2}$/.test(q.id); }));
 
     // Storage probe / banner
@@ -290,15 +290,15 @@
     // revealAll + figures
     check('revealAll returns true', App.revealAll() === true);
     check('revealAll shows every solution', $$('.q[data-qid] .solution').length === N, 'got ' + $$('.q[data-qid] .solution').length);
-    // Required figures: Q7, Q11–Q16 (7). Q6's staircase is optional in the contract → informational only.
-    var REQUIRED_FIG = ['m1-q07', 'm1-q11', 'm1-q12', 'm1-q13', 'm1-q14', 'm1-q15', 'm1-q16'];
+    // Required figures: Q7, Q11–Q14 (5) after the 2026-11-03 revision to 15 questions. Q6's staircase is optional in the contract → informational only.
+    var REQUIRED_FIG = ['m1-q07', 'm1-q11', 'm1-q12', 'm1-q13', 'm1-q14'];
     var figQs = m1.questions.filter(function (q) { return q.figure; });
     var figIds = figQs.map(function (q) { return q.id; });
-    check('the 7 required questions carry a figure spec', REQUIRED_FIG.every(function (id) { return figIds.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
+    check('the 5 required questions carry a figure spec', REQUIRED_FIG.every(function (id) { return figIds.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
     check('no unexpected figure specs', figIds.every(function (id) { return id === 'm1-q06' || REQUIRED_FIG.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
     check('window.Figures.render is available', !!(window.Figures && typeof window.Figures.render === 'function'));
     var noFig = REQUIRED_FIG.filter(function (id) { return !$('.solution .fig svg', card(id)); });
-    check('figures render for the 7 required figure questions', noFig.length === 0, 'missing: ' + noFig.join(','));
+    check('figures render for the 5 required figure questions', noFig.length === 0, 'missing: ' + noFig.join(','));
     var q6 = card('m1-q06');
     log(TAG + ' INFO: optional staircase figure (m1-q06) spec=' + (figIds.indexOf('m1-q06') >= 0 ? 'yes' : 'no') + ' rendered=' + (q6 && $('.solution .fig svg', q6) ? 'yes' : 'no'));
     figQs = figQs.filter(function (q) { return $('.solution .fig svg', card(q.id)); });   // only rendered ones below

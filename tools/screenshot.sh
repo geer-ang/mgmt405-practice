@@ -9,6 +9,9 @@
 # Chrome's stderr is written to $REPO/chrome.log. The exit status is non-zero when
 # Chrome fails, the PNG was not written, or any INFO:CONSOLE line in the log
 # contains "Error" (JS errors from the page). All console lines are echoed to stderr.
+# Windows Chrome never lays out a headless window narrower than 500 px, so for a screenshot
+# narrower than that the page is loaded inside an <iframe> of the requested width (a harness
+# file in the profile directory) and the PNG is cropped to that width. --dom refuses W < 500.
 # Override the browser with CHROME=/path/to/chrome.exe, the time limit with TIMEOUT=secs.
 set -euo pipefail
 
@@ -19,7 +22,7 @@ LOG="$REPO/chrome.log"
 TIMEOUT="${TIMEOUT:-120}"
 
 usage() {
-  sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+  sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
   exit 2
 }
 die() { echo "screenshot.sh: $*" >&2; exit 1; }
@@ -55,13 +58,29 @@ to_url() {
 }
 url="$(to_url "$target")"
 
+# ---- narrow screenshots: wrap the page in an iframe of the requested width ----
+# (headless Chrome on Windows clamps the layout viewport to 500 px; the PNG is cropped afterwards)
+MIN_W=500
+winW="$W"
+harness=""
+if (( W < MIN_W )); then
+  [[ $mode == shot ]] || die "--dom cannot render widths below ${MIN_W}px (Chrome clamps the viewport); use a screenshot instead"
+  mkdir -p "$PROFILE"
+  harness="$PROFILE/harness.html"
+  trap 'rm -f "$harness"' EXIT
+  esc_url="${url//&/&amp;}"
+  printf '<!doctype html><html><head><meta charset="utf-8"><title>harness</title><style>html,body{margin:0;background:#888}iframe{display:block;border:0;width:%spx;height:%spx}</style></head><body><iframe src="%s"></iframe></body></html>\n' "$W" "$H" "$esc_url" > "$harness"
+  url="$(to_url "$harness")"
+  winW="$MIN_W"
+fi
+
 # ---- Chrome arguments -------------------------------------------------------
 mkdir -p "$PROFILE"
 : > "$LOG"
 args=(
   --headless=new --disable-gpu --hide-scrollbars --no-first-run --no-default-browser-check
   --user-data-dir="$(wslpath -w "$PROFILE")"
-  --window-size="$W,$H"
+  --window-size="$winW,$H"
   --enable-logging=stderr --v=0
 )
 
@@ -97,6 +116,10 @@ if [[ $mode == dom ]]; then
   tr -d '\r' < "$dom"
 else
   [[ -s "$png" ]] || die "no screenshot written at $png (see $LOG)"
+  if [[ -n "$harness" ]]; then   # crop the 500-px window to the iframe width (needs Pillow; otherwise keep the gray margin)
+    python3 -I -c 'import sys; from PIL import Image; p=sys.argv[1]; w=int(sys.argv[2]); im=Image.open(p); im.crop((0,0,min(w,im.width),im.height)).save(p)' "$png" "$W" 2>/dev/null \
+      || echo "screenshot.sh: Pillow not available, PNG keeps a gray margin right of ${W}px" >&2
+  fi
   echo "$png"
 fi
 if [[ -n "$console" ]]; then
