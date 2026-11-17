@@ -17,6 +17,7 @@
   "… DONE pass=n fail=m" line. The token strings are concatenated in the script below so that grepping a
   --dump-dom of this page matches only real output lines, not the source.
   Flags: ?reveal=1 → skip the checks, just call revealAll() (for screenshots);
+         ?reveal=1&module=m3 → same for another module;
          ?nostorage=1 → make window.localStorage throw before the app loads, then check the banner + mechanics.
   The page saves any existing progress before testing and restores it afterwards.
 -->
@@ -29,22 +30,12 @@
 </header>
 <div class="banner" id="storage-banner" hidden>Progress can't be saved in this browser or embed — open the page directly to keep your progress.</div>
 <nav class="modnav" id="modnav" aria-label="Modules"></nav>
-<div class="controls">
-  <label for="typefilter">Question type:</label>
-  <select id="typefilter">
-    <option value="all">All</option>
-    <option value="numeric">Numeric</option>
-    <option value="conceptual">Conceptual</option>
-  </select>
-  <span class="stats"><span id="progress">0 / 0 attempted</span> · <strong id="correct">0 correct</strong></span>
-  <button id="reset" class="reset" type="button">Reset this module</button>
-</div>
 <main id="main"></main>
 
 <script>
 // Runs BEFORE the app: snapshot real progress so it can be restored, and honour ?nostorage=1.
 (function () {
-  var KEY = 'mgmt405_ucla_practice_v1';
+  var KEY = 'mgmt405_ucla_practice_v2';
   var params = new URLSearchParams(location.search);
   window.__selftest = { key: KEY, params: params, snapshot: null, hadStorage: false };
   try { window.__selftest.snapshot = window.localStorage.getItem(KEY); window.__selftest.hadStorage = true; } catch (_) {}
@@ -88,6 +79,7 @@
 <script src="../assets/figures.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../data/module1.js" data-module="m1"></script>
+<script src="../data/module2.js" data-module="m2"></script>
 
 <script>
 (function () {
@@ -108,7 +100,6 @@
   function card(qid) { return $('.q[data-qid="' + qid + '"]'); }
   function text(node) { return node ? node.textContent.replace(/\s+/g, ' ').trim() : ''; }
   function wrongIndex(q) { return (q.correct_index + 1) % q.choices.length; }
-  function statsText() { return text($('.controls .stats')); }
 
   function restoreStorage() {
     if (nostorage || !T.hadStorage) return;
@@ -125,7 +116,7 @@
 
   function run() {
     var App = window.PracticeApp;
-    var api = ['modules', 'state', 'submit', 'resetModule', 'revealAll', 'selectModule', 'setFilter'];
+    var api = ['modules', 'state', 'submit', 'resetModule', 'revealAll', 'selectModule'];
     check('PracticeApp exposes ' + api.join(', '), !!App && api.every(function (k) { return typeof App[k] === 'function'; }));
     if (!App) return;
 
@@ -139,13 +130,26 @@
 
     // ?reveal=1 → screenshots mode
     if (params.get('reveal') === '1') {
-      App.selectModule('m1'); App.setFilter('all'); App.revealAll();
-      check('revealAll shows every solution', $$('.q[data-qid] .solution').length === N);
+      var want = params.get('module') || 'm1', shown = null;
+      mods.forEach(function (m) { if (m.id === want) shown = m; });
+      check('module ' + want + ' is registered', !!shown);
+      if (!shown) return;
+      App.selectModule(want); App.revealAll();
+      check('revealAll shows every solution', $$('.q[data-qid] .solution').length === shown.questions.length);
       return;
     }
 
-    check('m1 has 15 questions', N === 15, 'got ' + N);
-    check('m1 question ids look like m1-qNN', m1.questions.every(function (q) { return /^m1-q\d{2}$/.test(q.id); }));
+    // Every module declared by a <script data-module> tag registered, with 6–10 questions and well-formed ids
+    var declared = $$('script[data-module]').map(function (sc) { return sc.getAttribute('data-module'); });
+    check('every declared module registered (' + declared.join(', ') + ')', declared.every(function (id) { return mods.some(function (m) { return m.id === id; }); }),
+      'registered: ' + mods.map(function (m) { return m.id; }).join(','));
+    mods.forEach(function (m) {
+      var n = m.questions.length;
+      check(m.id + ' has 6 to 10 questions', n >= 6 && n <= 10, 'got ' + n);
+      check(m.id + ' question ids look like ' + m.id + '-qNN and are unique', m.questions.every(function (q, i) {
+        return new RegExp('^' + m.id + '-q\\d{2}$').test(q.id) && m.questions.findIndex(function (o) { return o.id === q.id; }) === i;
+      }));
+    });
 
     // Storage probe / banner
     var banner = $('#storage-banner');
@@ -159,8 +163,6 @@
 
     // Clean start
     check('selectModule(m1) returns true', App.selectModule('m1') === true);
-    check('setFilter(all) returns true', App.setFilter('all') === true);
-    check('setFilter rejects unknown kinds', App.setFilter('bogus') === false);
     App.resetModule('m1');
     var activeTab = $('#modnav button.active');
     check('module tab for m1 is active', !!activeTab && activeTab.dataset.mid === 'm1');
@@ -178,7 +180,11 @@
 
     var q1 = m1.questions[0], q2 = m1.questions[1], q3 = m1.questions[2];
     var c1 = card(q1.id);
-    check('card shows theme tag', !!$('.qtag', c1) && text($('.qtag', c1)) === String(q1.theme));
+    check('no top panel: no filter, stats or reset controls', !$('.controls') && !$('#typefilter') && !$('#progress') && !$('#correct') && !$('.stats'));
+    check('cards show no theme or type labels', $$('.qtag').length === 0 && $$('.qkind').length === 0 &&
+      m1.questions.every(function (q) { return text($('.qhead', card(q.id))).indexOf(String(q.theme)) < 0; }));
+    check('card head shows only the question number before any attempt', text($('.qhead', c1)) === 'Q1', text($('.qhead', c1)));
+    check('page never shows an attempted/correct tally', !/\battempted\b/.test(text($('#main'))) && !/\battempted\b/.test(text($('#modnav'))));
     check('card shows "Covered in:" line', text($('.qsource', c1)) === 'Covered in: ' + q1.source);
     check('stem rendered as paragraphs', $$('.qstem p', c1).length === String(q1.stem).split('\n').filter(function (p) { return p.trim(); }).length);
     check('ask rendered in bold', !!$('.qask', c1) && text($('.qask', c1)) === String(q1.ask));
@@ -194,7 +200,6 @@
     var s = App.state()[q1.id];
     check('blank submit consumes no attempt', r && r.consumed === false && r.status === 'blank' && (!s || s.attempts === 0), JSON.stringify(r));
     check('blank submit shows an inline prompt', !!$('.prompt', card(q1.id)));
-    check('blank submit leaves stats at 0 attempted', /^0 \/ \d+ attempted · 0 correct$/.test(statsText()), statsText());
 
     // Wrong ×3 → hints 1/2/3, solution only after the 3rd
     var wrongs = q1.choices.map(function (_, i) { return i; }).filter(function (i) { return i !== q1.correct_index; });
@@ -235,7 +240,6 @@
       $$('input[type="radio"]', card(q2.id)).every(function (i) { return i.disabled; }));
     check('correct feedback text', /^✓ Correct!/.test(text($('.feedback', card(q2.id)))), text($('.feedback', card(q2.id))));
     check('correct answer reveals no hints', $$('.hint', card(q2.id)).length === 0);
-    check('stats: 2 / ' + N + ' attempted · 1 correct', statsText() === '2 / ' + N + ' attempted · 1 correct', statsText());
 
     // Unknown question id
     r = App.submit('nope-q99', 0);
@@ -247,25 +251,10 @@
     } else {
       var stored = null;
       try { stored = JSON.parse(window.localStorage.getItem(T.key)); } catch (_) {}
-      check('state persisted under localStorage[mgmt405_ucla_practice_v1]', !!stored && stored[q1.id] && stored[q1.id].attempts === 3 && stored[q1.id].hints_shown === 3 &&
+      check('state persisted under localStorage[mgmt405_ucla_practice_v2]', !!stored && stored[q1.id] && stored[q1.id].attempts === 3 && stored[q1.id].hints_shown === 3 &&
         stored[q2.id] && stored[q2.id].correct === true && stored[q2.id].feedback && stored[q2.id].feedback.text === '✓ Correct!');
       check('stored state equals in-memory state (re-init would restore it)', JSON.stringify(stored) === JSON.stringify(App.state()));
     }
-
-    // Type filter + stats follow module + filter
-    var numeric = m1.questions.filter(function (q) { return q.kind === 'numeric'; });
-    var conceptual = m1.questions.filter(function (q) { return q.kind === 'conceptual'; });
-    App.setFilter('numeric');
-    check('numeric filter shows only numeric questions', $$('.q[data-qid]').length === numeric.length &&
-      $$('.q[data-qid]').every(function (c) { return m1.questions.some(function (q) { return q.id === c.dataset.qid && q.kind === 'numeric'; }); }));
-    var attNum = numeric.filter(function (q) { return q.id === q1.id || q.id === q2.id; }).length;
-    var corNum = numeric.filter(function (q) { return q.id === q2.id; }).length;
-    check('stats follow the filter', statsText() === attNum + ' / ' + numeric.length + ' attempted · ' + corNum + ' correct', statsText());
-    App.setFilter('conceptual');
-    check('conceptual filter shows only conceptual questions', $$('.q[data-qid]').length === conceptual.length);
-    check('filter select mirrors setFilter()', $('#typefilter').value === 'conceptual');
-    App.setFilter('all');
-    check('all filter restores every card', $$('.q[data-qid]').length === N);
 
     // Late registration of a second module; reset clears only the active module
     var tabsBefore = $$('#modnav button').length;
@@ -283,32 +272,49 @@
     check('resetModule(m1) returns true', App.resetModule('m1') === true);
     var st = App.state();
     check('reset clears only the active module', !st[q1.id] && !st[q2.id] && st['zz-q01'] && st['zz-q01'].attempts === 1, JSON.stringify(st));
-    check('reset re-renders clean cards', $$('.q.done').length === 0 && $$('.hint').length === 0 && $$('.solution').length === 0 && statsText() === '0 / ' + N + ' attempted · 0 correct');
+    check('reset re-renders clean cards', $$('.q.done').length === 0 && $$('.hint').length === 0 && $$('.solution').length === 0);
+    // The quiet "start over" button under the last question clears the module after a confirm()
+    App.submit(q2.id, q2.correct_index);
+    var again = $('#main .modfoot button[data-action="reset"]');
+    check('start-over button sits under the last card', !!again && !!again.closest('.modfoot') && !again.closest('.q') &&
+      $('#main').lastElementChild === again.closest('.modfoot'));
+    var realConfirm = window.confirm, asked = 0;
+    window.confirm = function () { asked++; return false; };
+    if (again) again.click();
+    check('start-over asks for confirmation and does nothing when cancelled', asked === 1 && !!App.state()[q2.id]);
+    window.confirm = function () { asked++; return true; };
+    again = $('#main .modfoot button[data-action="reset"]');
+    if (again) again.click();
+    window.confirm = realConfirm;
+    check('start-over clears the module when confirmed', asked === 2 && !App.state()[q2.id] && $$('.q.done').length === 0);
     check('resetModule rejects unknown module', App.resetModule('nope') === false);
     check('selectModule rejects unknown module', App.selectModule('nope') === false);
 
-    // revealAll + figures
-    check('revealAll returns true', App.revealAll() === true);
-    check('revealAll shows every solution', $$('.q[data-qid] .solution').length === N, 'got ' + $$('.q[data-qid] .solution').length);
-    // Required figures: Q7, Q11–Q14 (5) after the 2026-11-03 revision to 15 questions. Q6's staircase is optional in the contract → informational only.
-    var REQUIRED_FIG = ['m1-q07', 'm1-q11', 'm1-q12', 'm1-q13', 'm1-q14'];
-    var figQs = m1.questions.filter(function (q) { return q.figure; });
-    var figIds = figQs.map(function (q) { return q.id; });
-    check('the 5 required questions carry a figure spec', REQUIRED_FIG.every(function (id) { return figIds.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
-    check('no unexpected figure specs', figIds.every(function (id) { return id === 'm1-q06' || REQUIRED_FIG.indexOf(id) >= 0; }), 'have: ' + figIds.join(','));
+    // revealAll + figures, module by module
     check('window.Figures.render is available', !!(window.Figures && typeof window.Figures.render === 'function'));
-    var noFig = REQUIRED_FIG.filter(function (id) { return !$('.solution .fig svg', card(id)); });
-    check('figures render for the 5 required figure questions', noFig.length === 0, 'missing: ' + noFig.join(','));
-    var q6 = card('m1-q06');
-    log(TAG + ' INFO: optional staircase figure (m1-q06) spec=' + (figIds.indexOf('m1-q06') >= 0 ? 'yes' : 'no') + ' rendered=' + (q6 && $('.solution .fig svg', q6) ? 'yes' : 'no'));
-    figQs = figQs.filter(function (q) { return $('.solution .fig svg', card(q.id)); });   // only rendered ones below
-    var twoPanel = figQs.filter(function (q) { return q.figure.panels && q.figure.panels.length === 2; });
-    check('two-panel figures use .fig.two (' + twoPanel.length + ')', twoPanel.every(function (q) { return !!$('.fig.two svg', card(q.id)); }));
-    check('single-panel figures do not use .fig.two', figQs.filter(function (q) { return !(q.figure.panels && q.figure.panels.length === 2); })
-      .every(function (q) { return !$('.fig.two', card(q.id)); }));
-    check('figure SVGs have a viewBox and no width/height attributes', $$('.fig svg').every(function (svg) {
-      return svg.hasAttribute('viewBox') && !svg.hasAttribute('width') && !svg.hasAttribute('height');
-    }));
+    mods.filter(function (m) { return m.id !== 'zz'; }).forEach(function (m) {
+      App.selectModule(m.id);
+      var n = m.questions.length;
+      check(m.id + ': all ' + n + ' cards rendered with 4 options and no labels', $$('.q[data-qid]').length === n && $$('.qtag, .qkind').length === 0 &&
+        m.questions.every(function (q) { return $$('.choices input[type="radio"]', card(q.id)).length === 4; }));
+      check(m.id + ': revealAll returns true and shows every solution', App.revealAll() === true && $$('.q[data-qid] .solution').length === n, 'got ' + $$('.q[data-qid] .solution').length);
+      var figQs = m.questions.filter(function (q) { return q.figure; });
+      var noFig = figQs.filter(function (q) { return !$('.solution .fig svg', card(q.id)); });
+      check(m.id + ': every figure spec renders an SVG (' + figQs.length + ')', noFig.length === 0, 'missing: ' + noFig.map(function (q) { return q.id; }).join(','));
+      var twoPanel = figQs.filter(function (q) { return q.figure.panels && q.figure.panels.length === 2; });
+      check(m.id + ': two-panel figures use .fig.two (' + twoPanel.length + ')', twoPanel.every(function (q) { return !!$('.fig.two svg', card(q.id)); }));
+      check(m.id + ': single-panel figures do not use .fig.two', figQs.filter(function (q) { return !(q.figure.panels && q.figure.panels.length === 2); })
+        .every(function (q) { return !$('.fig.two', card(q.id)); }));
+      check(m.id + ': figure SVGs have a viewBox and no width/height attributes', $$('.fig svg').every(function (svg) {
+        return svg.hasAttribute('viewBox') && !svg.hasAttribute('width') && !svg.hasAttribute('height');
+      }));
+      var withT = m.questions.filter(function (q) { return q.table; });
+      check(m.id + ': tables render (' + withT.length + ')', withT.every(function (q) {
+        var tb = $('.qtable', card(q.id)); return tb && $$('tbody tr', tb).length === q.table.rows.length && $$('th', tb).length === q.table.headers.length;
+      }));
+      App.resetModule(m.id);
+    });
+    App.selectModule('m1');
 
     // Calculator: leading zeros are decimal, never legacy octal
     function press(sel) { $('.calc .keys button' + sel).click(); }
@@ -322,7 +328,7 @@
     press('[data-act="clear"]');
 
     // Tidy up (storage itself is restored in finish())
-    App.resetModule('m1'); App.resetModule('zz');
+    mods.forEach(function (m) { App.resetModule(m.id); }); App.resetModule('zz');
   }
 
   window.addEventListener('load', function () {

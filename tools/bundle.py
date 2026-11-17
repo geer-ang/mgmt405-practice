@@ -3,6 +3,12 @@
 
 Usage:
     python3 tools/bundle.py --modules m1[,m2...] [--out FILE] [--index PATH]
+                            [--review [--notes NOTES.json]]
+
+--review makes a copy for a human reviewer: every hint and worked solution is
+shown at once (with a button to switch back to the student view), and --notes
+adds a "reviewer note" under each question from a JSON file {"m2-q01": "text"
+or ["line", "line"], ...}. Review copies are for the teaching team only.
 
 What it does
 - Inlines every <link rel="stylesheet" href="..."> that points at a local file
@@ -11,7 +17,8 @@ What it does
   assets/app.js, ...). Scripts that carry a data-module attribute are "data
   scripts": one is kept (as <script data-module="<id>">...</script>) only when its
   id is in --modules, and any id in --modules that has no tag in index.html is
-  appended from data/<id>.js, so the bundle carries exactly the modules asked for.
+  appended from data/<id>.js (or data/moduleN.js for an id mN), so the bundle carries exactly
+  the modules asked for.
 - Escapes "</script" inside inlined code as "<\\/script" so the HTML parser does
   not end the block early (JS and JSON both read "<\\/script" as "</script").
 - Writes UTF-8 with LF line endings to --out, or to stdout when --out is absent.
@@ -143,6 +150,9 @@ def bundle(index_path, modules):
         blocks = []
         for mid in missing:
             path = base / 'data' / f'{mid}.js'
+            numbered = re.fullmatch(r'm(\d+)', mid)   # module ids m1, m2, ... live in data/module1.js, data/module2.js, ...
+            if not path.exists() and numbered:
+                path = base / 'data' / f'module{numbered.group(1)}.js'
             code = read_text(path, f'data file for module "{mid}"')
             blocks.append(f'<script data-module="{mid}">\n{safe_js(code).strip()}\n</script>')
             notes.append(f'added {rel(path)} (index.html has no <script data-module="{mid}">)')
@@ -170,6 +180,86 @@ def bundle(index_path, modules):
     return html, notes
 
 
+REVIEW_CSS = """
+.reviewbar { background:#fff7ea; border-bottom:1px solid #e3c88f; color:#5c4200; font-size:13px; padding:8px 22px; display:flex; gap:10px 14px; align-items:center; flex-wrap:wrap; }
+.reviewbar strong { font-weight:600; }
+.reviewbar button { font:inherit; font-size:12.5px; padding:3px 10px; border:1px solid #c9a55a; background:#fff; color:#5c4200; border-radius:4px; cursor:pointer; }
+.reviewbar button[aria-pressed="true"] { background:#5c4200; color:#fff; border-color:#5c4200; }
+.reviewnote { margin:10px 0 0; padding:8px 12px; border:1px dashed #c9a55a; background:#fffdf6; color:#5c4200; font-size:12.5px; border-radius:4px; }
+.reviewnote b { display:block; margin-bottom:2px; }
+.reviewnote p { margin:0 0 3px; }
+@media print { .reviewbar button, .calc-toggle, .calc, .modfoot { display:none !important; } .q { break-inside:avoid; } }
+"""
+
+REVIEW_JS = """
+(function () {
+  var NOTES = __NOTES__;
+  var on = true, busy = false;
+  function main() { return document.getElementById('main'); }
+  function annotate() {
+    var cards = document.querySelectorAll('.q[data-qid]');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i], note = NOTES[card.dataset.qid];
+      if (!note || card.querySelector('.reviewnote')) continue;
+      var box = document.createElement('div'); box.className = 'reviewnote';
+      var head = document.createElement('b'); head.textContent = 'Reviewer note (not shown to students)'; box.appendChild(head);
+      (Array.isArray(note) ? note : [note]).forEach(function (line) { var p = document.createElement('p'); p.textContent = String(line); box.appendChild(p); });
+      card.appendChild(box);
+    }
+  }
+  function apply() {
+    if (busy || !window.PracticeApp) return;
+    busy = true;
+    try {
+      if (on && document.querySelector('.q[data-qid]:not(.done), .q[data-qid].done:not(.has-hints)')) {
+        window.PracticeApp.revealAll({ hints: true });
+        var cards = document.querySelectorAll('.q[data-qid]');
+        for (var i = 0; i < cards.length; i++) cards[i].classList.add('has-hints');
+      }
+      annotate();
+    } finally { busy = false; }
+  }
+  function setMode(review) {
+    on = review;
+    document.getElementById('rv-all').setAttribute('aria-pressed', String(review));
+    document.getElementById('rv-student').setAttribute('aria-pressed', String(!review));
+    if (!review) { window.PracticeApp.modules().forEach(function (m) { window.PracticeApp.resetModule(m.id); }); window.PracticeApp.selectModule((location.hash || '').slice(1)) || 0; }
+    apply();
+  }
+  function start() {
+    var bar = document.createElement('div'); bar.className = 'reviewbar';
+    bar.innerHTML = '<strong>Review copy for the teaching team.</strong> <span>Students see one hint per wrong answer and the solution only at the end.</span> ' +
+      '<button type="button" id="rv-all" aria-pressed="true">Everything shown</button> <button type="button" id="rv-student" aria-pressed="false">Student view</button>';
+    var nav = document.getElementById('modnav');
+    nav.parentNode.insertBefore(bar, nav);
+    document.getElementById('rv-all').addEventListener('click', function () { setMode(true); });
+    document.getElementById('rv-student').addEventListener('click', function () { setMode(false); });
+    new MutationObserver(function () { apply(); }).observe(main(), { childList: true });
+    apply();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+"""
+
+
+def add_review_layer(html, notes_path):
+    """Append the reviewer bar, its styles and the optional per-question notes."""
+    import json
+    notes = {}
+    if notes_path:
+        try:
+            notes = json.loads(read_text(Path(notes_path), 'notes file'))
+        except ValueError as exc:
+            die(f'notes file is not valid JSON: {notes_path} ({exc})')
+        if not isinstance(notes, dict):
+            die('notes file must be a JSON object {"question id": "note" or ["line", ...]}')
+    js = REVIEW_JS.replace('__NOTES__', json.dumps(notes, ensure_ascii=False))
+    block = f'<style>{safe_css(REVIEW_CSS)}</style>\n<script>{safe_js(js)}</script>\n'
+    body_end = BODY_END_RE.search(html)
+    pos = body_end.start() if body_end else len(html)
+    return html[:pos] + block + html[pos:]
+
+
 def parse_modules(values):
     """--modules m1,m2 or --modules m1 --modules m2 -> ordered, de-duplicated list."""
     ids = []
@@ -194,11 +284,20 @@ def main(argv=None):
     parser.add_argument('--out', metavar='FILE', help='output file (default: stdout)')
     parser.add_argument('--index', metavar='PATH', default=str(REPO / 'index.html'),
                         help='page to bundle (default: <repo>/index.html)')
+    parser.add_argument('--review', action='store_true',
+                        help='review copy: show every hint and solution at once, with a toggle back to the student view')
+    parser.add_argument('--notes', metavar='FILE',
+                        help='with --review: JSON file {"question id": "note" or ["line", ...]} shown under each question')
     args = parser.parse_args(argv)
+    if args.notes and not args.review:
+        die('--notes only makes sense together with --review')
 
     modules = parse_modules(args.modules)
     index_path = Path(args.index).resolve()
     html, notes = bundle(index_path, modules)
+    if args.review:
+        html = add_review_layer(html, args.notes)
+        notes.append('added the review layer' + (f' with notes from {args.notes}' if args.notes else ''))
     for note in notes:
         sys.stderr.write(f'bundle.py: {note}\n')
 

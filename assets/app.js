@@ -1,8 +1,10 @@
 /* MGMT 405 practice exercises — app logic.
  *
  * Plain JavaScript, no dependencies. Data files call `registerModule({...})`;
- * this file renders the module tabs, question cards, stats, the floating
- * calculator and keeps per-question progress in localStorage.
+ * this file renders the module tabs, question cards, the floating calculator
+ * and keeps per-question progress in localStorage. There is deliberately no
+ * score or progress panel: students should not feel watched. The data fields
+ * `theme` and `kind` are editorial metadata and are not shown on the page.
  *
  * Nothing here touches the DOM at load time: everything runs from init(),
  * which fires on DOMContentLoaded (or immediately if the DOM is already parsed).
@@ -10,16 +12,15 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'mgmt405_ucla_practice_v1';
+  // v2 (2026-11): questions were cut and renumbered, so progress saved under v1 no longer maps to the same ids.
+  var STORAGE_KEY = 'mgmt405_ucla_practice_v2';
   var MAX_ATTEMPTS = 3;
   var BANNER_TEXT = "Progress can't be saved in this browser or embed — open the page directly to keep your progress.";
-  var FILTERS = ['all', 'numeric', 'conceptual'];
 
   var modules = [];        // registered modules, in registration order
   var state = {};          // { qid: {attempts, hints_shown, completed, correct, choice, feedback:{type,text}} }
   var storageOK = false;   // result of the storage probe at init
   var activeModule = null; // id of the module shown
-  var typeFilter = 'all';  // 'all' | 'numeric' | 'conceptual'
   var initialized = false;
   var scriptErrors = [];   // window 'error' events, used to enrich the module-load error card
   var els = {};            // DOM elements looked up at init
@@ -132,7 +133,7 @@
   // ---------------------------------------------------------------------------
   // Rendering: tabs, module heading, cards
   // ---------------------------------------------------------------------------
-  function renderAll() { renderTabs(); renderMain(); updateStats(); }
+  function renderAll() { renderTabs(); renderMain(); }
 
   function renderTabs() {
     if (!els.nav) return;
@@ -145,12 +146,6 @@
       b.addEventListener('click', function () { selectModule(m.id); });
       els.nav.appendChild(b);
     });
-  }
-
-  function visibleQuestions() {
-    var mod = currentModule();
-    if (!mod) return [];
-    return mod.questions.filter(function (q) { return typeFilter === 'all' || q.kind === typeFilter; });
   }
 
   function renderMain() {
@@ -167,9 +162,17 @@
     if (mod.subtitle) head.appendChild(el('p', 'modsub', mod.subtitle));
     els.main.appendChild(head);
 
-    var qs = visibleQuestions();
-    if (!qs.length) { els.main.appendChild(el('p', 'muted', 'No questions match this filter.')); return; }
-    qs.forEach(function (q) { els.main.appendChild(renderCard(q, mod.questions.indexOf(q))); });
+    var qs = mod.questions;
+    if (!qs.length) { els.main.appendChild(el('p', 'muted', 'No questions in this module yet.')); return; }
+    qs.forEach(function (q, idx) { els.main.appendChild(renderCard(q, idx)); });
+
+    // Quiet "start over" control under the last question (clears this module's saved answers).
+    var foot = el('div', 'modfoot');
+    var again = el('button', 'startover', 'Clear my answers and start this module over');
+    again.type = 'button';
+    again.dataset.action = 'reset';
+    foot.appendChild(again);
+    els.main.appendChild(foot);
   }
 
   // Which <script data-module> ids never registered? → one error card each.
@@ -258,11 +261,9 @@
     card.dataset.qid = q.id;
     card.id = q.id;
 
-    // Head: number, theme tag, kind, status
+    // Head: number and status (theme and kind are editorial metadata, not shown)
     var head = el('div', 'qhead');
     head.appendChild(el('span', 'qnum', 'Q' + (idx + 1)));
-    if (q.theme) head.appendChild(el('span', 'qtag', q.theme));
-    if (q.kind) head.appendChild(el('span', 'qkind ' + (q.kind === 'numeric' ? 'numeric' : 'conceptual'), q.kind === 'numeric' ? 'Numeric' : 'Conceptual'));
     var statusText = outcome === 'correct' ? '✓ Solved' : outcome === 'failed' ? '✗ Not solved' : outcome === 'revealed' ? 'Solution shown' : '';
     head.appendChild(el('span', 'qstatus ' + outcome, statusText));
     card.appendChild(head);
@@ -331,18 +332,6 @@
     if (old) old.replaceWith(renderCard(found.q, found.idx, opts));
   }
 
-  function updateStats() {
-    var qs = visibleQuestions();
-    var attempted = 0, correct = 0;
-    qs.forEach(function (q) {
-      var s = state[q.id];
-      if (s && (s.completed || s.attempts > 0)) attempted++;
-      if (s && s.correct) correct++;
-    });
-    if (els.progress) els.progress.textContent = attempted + ' / ' + qs.length + ' attempted';
-    if (els.correct) els.correct.textContent = correct + ' correct';
-  }
-
   // ---------------------------------------------------------------------------
   // Mechanics
   // ---------------------------------------------------------------------------
@@ -390,7 +379,6 @@
     }
     saveState();
     rerenderCard(found);
-    updateStats();
     return { ok: status === 'correct', consumed: true, status: status };
   }
 
@@ -400,15 +388,17 @@
     refreshState();
     mod.questions.forEach(function (q) { delete state[q.id]; });
     saveState();
-    if (mod.id === activeModule) { renderMain(); updateStats(); }
+    if (mod.id === activeModule) renderMain();
     return true;
   }
 
   // Marks every question of the active module completed and shows all solutions
-  // (+ figures). Used for screenshots and the self-test.
-  function revealAll() {
+  // (+ figures). Used for screenshots, the self-test and offline review copies.
+  // revealAll({hints: true}) also shows the three hints of every question.
+  function revealAll(opts) {
     var mod = currentModule();
     if (!mod) return false;
+    var withHints = !!(opts && opts.hints);
     refreshState();
     mod.questions.forEach(function (q) {
       var s = ensureS(q.id);
@@ -416,10 +406,10 @@
         s.completed = true; s.correct = false;
         s.feedback = { type: 'info', text: 'Solution shown.' };
       }
+      if (withHints) s.hints_shown = Array.isArray(q.hints) ? q.hints.length : 0;
     });
     saveState();
     renderMain();
-    updateStats();
     return true;
   }
 
@@ -439,19 +429,12 @@
     syncHash(mid);
     return true;
   }
-  function setFilter(kind) {
-    if (FILTERS.indexOf(kind) < 0) return false;
-    typeFilter = kind;
-    if (els.filter && els.filter.value !== kind) els.filter.value = kind;
-    renderMain();
-    updateStats();
-    return true;
-  }
 
   // ---------------------------------------------------------------------------
   // Event handlers (delegated)
   // ---------------------------------------------------------------------------
   function onMainClick(e) {
+    if (e.target.closest && e.target.closest('button[data-action="reset"]')) { onResetClick(); return; }
     var btn = e.target.closest ? e.target.closest('button[data-action="submit"]') : null;
     if (!btn) return;
     var card = btn.closest('.q');
@@ -471,8 +454,9 @@
   function onResetClick() {
     var mod = currentModule();
     if (!mod) return;
-    if (!window.confirm('Reset your progress on ' + (mod.title || mod.id) + '? This cannot be undone.')) return;
+    if (!window.confirm('Clear your answers for ' + (mod.title || mod.id) + ' and start over?')) return;
     resetModule(mod.id);
+    window.scrollTo(0, 0);
   }
   // Another tab of this site saved progress: pick it up and re-render only the cards that changed.
   function onStorage(e) {
@@ -484,7 +468,6 @@
     mod.questions.forEach(function (q, idx) {
       if (JSON.stringify(before[q.id] || null) !== JSON.stringify(state[q.id] || null)) rerenderCard({ q: q, idx: idx });
     });
-    updateStats();
   }
   function onHashChange() {
     var id = hashModuleId();
@@ -544,10 +527,6 @@
 
     els.nav = document.getElementById('modnav');
     els.main = document.getElementById('main');
-    els.filter = document.getElementById('typefilter');
-    els.progress = document.getElementById('progress');
-    els.correct = document.getElementById('correct');
-    els.reset = document.getElementById('reset');
     if (!els.main) {                       // minimal fallback so the page still shows something
       els.main = document.createElement('main');
       els.main.id = 'main';
@@ -559,11 +538,6 @@
     if (!storageOK) showBanner();
 
     activeModule = hashModuleId() || (modules.length ? modules[0].id : null);
-    if (els.filter) {
-      if (FILTERS.indexOf(els.filter.value) >= 0) typeFilter = els.filter.value;
-      els.filter.addEventListener('change', function () { setFilter(els.filter.value); });
-    }
-    if (els.reset) els.reset.addEventListener('click', onResetClick);
     els.main.addEventListener('click', onMainClick);
     els.main.addEventListener('change', onMainChange);
     window.addEventListener('hashchange', onHashChange);
@@ -583,7 +557,6 @@
     submit: submit,
     resetModule: resetModule,
     revealAll: revealAll,
-    selectModule: selectModule,
-    setFilter: setFilter
+    selectModule: selectModule
   };
 })();

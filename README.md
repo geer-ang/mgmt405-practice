@@ -7,8 +7,9 @@ Live site: **https://geer-ang.github.io/mgmt405-practice/**
 A small website with the practice exercises for MGMT 405 (Managerial Economics, UCLA Anderson).
 Students open the link, pick a module and answer multiple-choice questions. A wrong answer reveals
 the next hint; after the third wrong attempt, or as soon as they get it right, the full worked
-solution appears (with a graph where one helps). Progress is saved in the student's own browser.
-There is no login and nothing is sent anywhere.
+solution appears (with a graph where one helps). Answers are remembered in the student's own
+browser so a reload does not lose them; a small link under the last question clears them.
+There is no login, no score or progress panel, and nothing is sent anywhere.
 
 The site is just files in this repository. GitHub publishes them for free; every time a file
 changes on the `main` branch, the site updates itself within a minute or two.
@@ -66,6 +67,11 @@ A question in the file looks like this (shortened):
 - Every question has exactly **4 choices** and exactly **3 hints**. `solution` is a list of
   paragraphs, one string each.
 - `stem` and `ask` are shown to students; `source` appears as "Covered in: ...".
+- `theme` and `kind` (`"numeric"` or `"conceptual"`) are notes for the teaching team. They are
+  required, but they are **not shown on the page**.
+- Write `source` so that it is true for every section of the course, for example
+  "In-person lecture: Elasticities (Tesla example)" or "Async video: Consumer Surplus", without
+  lecture or video numbers.
 - Keep the first line `registerModule({` and the last line `})` exactly as they are.
 - Keep the `"id"` values as they are: a student's saved progress is tied to the id.
 
@@ -165,6 +171,9 @@ Done once per module, normally by the TA:
 - **Review copy:** `python3 tools/bundle.py --modules m1,m2 --out preview.html` builds one
   self-contained HTML file that works offline. Double-click it, or email it to a colleague for
   review. Files named `preview*.html` are ignored by git and never published.
+  Add `--review` to show every hint and solution at once (with a button to switch back to what
+  students see), and `--notes notes.json` to print a reviewer note under each question
+  (`{"m2-q01": ["Slides: ...", "Skill: ..."]}`). Keep notes files outside the repository.
 - **Publish:** on github.com, click **Pull requests** → **New pull request**, set *base:* `main` and
   *compare:* `draft`, click **Create pull request**, then **Merge pull request** and
   **Confirm merge**. The check runs and the site updates.
